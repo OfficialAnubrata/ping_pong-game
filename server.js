@@ -24,7 +24,7 @@ let ball = {
 let score = { p1: 0, p2: 0 };
 let winner = null;
 
-function getSpeed(){
+function getSpeed() {
   return Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy).toFixed(1);
 }
 
@@ -98,9 +98,21 @@ setInterval(() => {
   if (score.p1 === WIN_SCORE) winner = p1.name;
   if (score.p2 === WIN_SCORE) winner = p2.name;
 
-  io.emit("state", { players, ball, score, ids, winner, speed: getSpeed() });
+  io.emit("state", {
+    players,
+    ball: {
+      x: Math.round(ball.x),
+      y: Math.round(ball.y),
+      dx: ball.dx,
+      dy: ball.dy
+    },
+    score,
+    ids,
+    winner,
+    speed: getSpeed()
+  });
 
-}, 1000 / 40);
+}, 1000 / 30);
 
 function resetBall(fullReset) {
   ball.x = 450;

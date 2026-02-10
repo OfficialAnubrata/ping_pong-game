@@ -1,189 +1,233 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>Ping Pong Neon</title>
+  <title>Ping Pong Neon</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
 
-<style>
-html,body{
-  margin:0;
-  width:100%;
-  height:100%;
-  background:#000;
-  font-family:'Orbitron',sans-serif;
-  overflow:hidden;
-}
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      font-family: 'Orbitron', sans-serif;
+      overflow: hidden;
+    }
 
-#lobby,#win{
-  position:fixed;
-  inset:0;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  background:radial-gradient(circle,#0f2027,#000);
-  color:white;
-  z-index:10;
-}
+    #lobby,
+    #win {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: radial-gradient(circle, #0f2027, #000);
+      color: white;
+      z-index: 10;
+    }
 
-input{
-  padding:14px;
-  border-radius:30px;
-  border:none;
-  width:240px;
-  font-size:16px;
-  text-align:center;
-}
+    input {
+      padding: 14px;
+      border-radius: 30px;
+      border: none;
+      width: 240px;
+      font-size: 16px;
+      text-align: center;
+    }
 
-button{
-  margin-top:20px;
-  padding:14px 40px;
-  border:none;
-  border-radius:40px;
-  background:linear-gradient(135deg,#00f2ff,#0072ff);
-  color:white;
-  font-size:16px;
-  cursor:pointer;
-  box-shadow:0 0 25px #00f2ff;
-}
+    button {
+      margin-top: 20px;
+      padding: 14px 40px;
+      border: none;
+      border-radius: 40px;
+      background: linear-gradient(135deg, #00f2ff, #0072ff);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 0 25px #00f2ff;
+    }
 
-canvas{
-  display:block;
-}
-</style>
+    canvas {
+      display: block;
+    }
+  </style>
 </head>
 
 <body>
 
-<div id="lobby">
-  <h1 style="font-size:56px;color:#00f2ff">PING PONG</h1>
-  <p>Fullscreen Neon Multiplayer</p>
-  <input id="name" placeholder="Enter your name">
-  <button onclick="join()">JOIN MATCH</button>
-  <p id="status"></p>
-</div>
+  <div id="lobby">
+    <h1 style="font-size:56px;color:#00f2ff">PING PONG</h1>
+    <p>Fullscreen Neon Multiplayer</p>
+    <input id="name" placeholder="Enter your name">
+    <button onclick="join()">JOIN MATCH</button>
+    <p id="status"></p>
+  </div>
 
-<div id="win" style="display:none">
-  <h1 id="winner" style="font-size:60px;color:#00f2ff"></h1>
-  <button onclick="restart()">RESTART</button>
-</div>
+  <div id="win" style="display:none">
+    <h1 id="winner" style="font-size:60px;color:#00f2ff"></h1>
+    <button onclick="restart()">RESTART</button>
+  </div>
 
-<canvas id="game"></canvas>
+  <canvas id="game"></canvas>
 
-<script src="/socket.io/socket.io.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
 
-<script>
-const socket = io();
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-const status = document.getElementById("status");
+  <script>
+    const socket = io();
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const status = document.getElementById("status");
 
-let W,H;
-function resize(){
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
-window.addEventListener("resize",resize);
-resize();
+    let W, H;
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    window.addEventListener("resize", resize);
+    resize();
 
-function join(){
-  const n = document.getElementById("name").value.trim();
-  if(!n) return alert("Enter name");
-  socket.emit("join",n);
-  status.innerText="You joined. Waiting for opponent...";
-}
+    function join() {
+      const n = document.getElementById("name").value.trim();
+      if (!n) return alert("Enter name");
+      socket.emit("join", n);
+      status.innerText = "You joined. Waiting for opponent...";
+    }
 
-function restart(){
-  socket.emit("restart");
-}
+    function restart() {
+      socket.emit("restart");
+    }
 
-document.addEventListener("mousemove",e=>{
-  let y = (e.clientY - 45) * 0.7;
-  if(y<0) y=0;
-  if(y>410) y=410;
-  socket.emit("move",y);
-});
+    let lastMoveTime = 0;
+    const MOVE_THROTTLE = 50; // ms
 
-socket.on("playerJoined",name=>{
-  status.innerText=name+" joined the room";
-});
+    document.addEventListener("mousemove", e => {
+      const now = Date.now();
+      if (now - lastMoveTime < MOVE_THROTTLE) return;
 
-socket.on("players",p=>{
-  if(Object.keys(p).length===2){
-    status.innerText="Opponent connected!";
-    setTimeout(()=>lobby.style.display="none",1000);
-  }
-});
+      let y = (e.clientY - 45) * 0.7;
+      if (y < 0) y = 0;
+      if (y > 410) y = 410;
 
-socket.on("restart",()=>{
-  win.style.display="none";
-});
+      socket.emit("move", Math.round(y));
+      lastMoveTime = now;
+    });
 
-let gameState=null;
+    // Arrow keys support
+    let keys = {};
+    document.addEventListener("keydown", e => keys[e.code] = true);
+    document.addEventListener("keyup", e => keys[e.code] = false);
 
-socket.on("state",data=>{
-  gameState=data;
-});
+    function updatePaddleWithKeys() {
+      if (!gameState || !socket.id || !gameState.players[socket.id]) return;
 
-function render(){
-  requestAnimationFrame(render);
-  if(!gameState) return;
+      const myPlayer = gameState.players[socket.id];
+      let y = myPlayer.y;
+      const speed = 8;
 
-  const data=gameState;
+      if (keys["ArrowUp"]) y -= speed;
+      if (keys["ArrowDown"]) y += speed;
 
-  if(data.winner){
-    win.style.display="flex";
-    winner.innerText=data.winner+" WINS";
-    return;
-  }
+      // Clamp
+      if (y < 0) y = 0;
+      if (y > 410) y = 410;
 
-  ctx.fillStyle="rgba(0,0,0,0.25)";
-  ctx.fillRect(0,0,W,H);
+      if (y !== myPlayer.y) {
+        const now = Date.now();
+        if (now - lastMoveTime >= MOVE_THROTTLE) {
+          socket.emit("move", Math.round(y));
+          lastMoveTime = now;
+        }
+        // Optimistically update local state to prevent jitter
+        myPlayer.y = y;
+      }
+    }
 
-  ctx.strokeStyle="#00f2ff";
-  ctx.lineWidth=2;
-  ctx.strokeRect(W*0.05,H*0.05,W*0.9,H*0.9);
 
-  ctx.strokeStyle="#00f2ff55";
-  ctx.setLineDash([20,25]);
-  ctx.beginPath();
-  ctx.moveTo(W/2,0);
-  ctx.lineTo(W/2,H);
-  ctx.stroke();
-  ctx.setLineDash([]);
+    socket.on("playerJoined", name => {
+      status.innerText = name + " joined the room";
+    });
 
-  const ids=data.ids;
-  const p1=data.players[ids[0]];
-  const p2=data.players[ids[1]];
+    socket.on("players", p => {
+      if (Object.keys(p).length === 2) {
+        status.innerText = "Opponent connected!";
+        setTimeout(() => lobby.style.display = "none", 1000);
+      }
+    });
 
-  const scaleX=W/900;
-  const scaleY=H/500;
+    socket.on("restart", () => {
+      win.style.display = "none";
+    });
 
-  ctx.shadowColor="#00f2ff";
-  ctx.shadowBlur=30;
-  ctx.fillStyle="white";
-  ctx.fillRect(30*scaleX,p1.y*scaleY,14*scaleX,90*scaleY);
-  ctx.fillRect(W-45*scaleX,p2.y*scaleY,14*scaleX,90*scaleY);
+    let gameState = null;
 
-  ctx.beginPath();
-  ctx.arc(data.ball.x*scaleX,data.ball.y*scaleY,14,0,Math.PI*2);
-  ctx.fill();
+    socket.on("state", data => {
+      gameState = data;
+    });
 
-  ctx.shadowBlur=0;
-  ctx.font="18px Orbitron";
-  ctx.fillText(p1.name,30*scaleX,40);
-  ctx.fillText(p2.name,W-160*scaleX,40);
+    function render() {
+      requestAnimationFrame(render);
+      updatePaddleWithKeys();
+      if (!gameState) return;
 
-  ctx.font="42px Orbitron";
-  ctx.fillText(`${data.score.p1}   ${data.score.p2}`,W/2-40,60);
+      const data = gameState;
 
-  ctx.font="16px Orbitron";
-  ctx.fillText("Speed: "+data.speed,W/2-40,90);
-}
+      if (data.winner) {
+        win.style.display = "flex";
+        winner.innerText = data.winner + " WINS";
+        return;
+      }
 
-render();
-</script>
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.strokeStyle = "#00f2ff";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(W * 0.05, H * 0.05, W * 0.9, H * 0.9);
+
+      ctx.strokeStyle = "#00f2ff55";
+      ctx.setLineDash([20, 25]);
+      ctx.beginPath();
+      ctx.moveTo(W / 2, 0);
+      ctx.lineTo(W / 2, H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      const ids = data.ids;
+      const p1 = data.players[ids[0]];
+      const p2 = data.players[ids[1]];
+
+      const scaleX = W / 900;
+      const scaleY = H / 500;
+
+      ctx.shadowColor = "#00f2ff";
+      ctx.shadowBlur = 30;
+      ctx.fillStyle = "white";
+      ctx.fillRect(30 * scaleX, p1.y * scaleY, 14 * scaleX, 90 * scaleY);
+      ctx.fillRect(W - 45 * scaleX, p2.y * scaleY, 14 * scaleX, 90 * scaleY);
+
+      ctx.beginPath();
+      ctx.arc(data.ball.x * scaleX, data.ball.y * scaleY, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.font = "18px Orbitron";
+      ctx.fillText(p1.name, 30 * scaleX, 40);
+      ctx.fillText(p2.name, W - 160 * scaleX, 40);
+
+      ctx.font = "42px Orbitron";
+      ctx.fillText(`${data.score.p1}   ${data.score.p2}`, W / 2 - 40, 60);
+
+      ctx.font = "16px Orbitron";
+      ctx.fillText("Speed: " + data.speed, W / 2 - 40, 90);
+    }
+
+    render();
+  </script>
 
 </body>
+
 </html>
