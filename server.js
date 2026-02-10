@@ -70,7 +70,7 @@ setInterval(()=>{
 
   io.emit("state",{players,ball,score,ids,winner});
 
-},1000/75);
+},1000/40);
 
 function reset(){
   ball.x=450;

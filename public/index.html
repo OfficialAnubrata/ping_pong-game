@@ -128,7 +128,18 @@ socket.on("restart",()=>{
 
 let lastBall=[];
 
+let gameState = null;
+
 socket.on("state",data=>{
+  gameState = data;
+});
+function render(){
+
+  requestAnimationFrame(render);
+
+  if(!gameState) return;
+
+  const data = gameState;
 
   if(data.winner){
     win.style.display="flex";
@@ -164,16 +175,9 @@ socket.on("state",data=>{
   ctx.fillRect(30*scaleX,p1.y*scaleY,14*scaleX,90*scaleY);
   ctx.fillRect(W-45*scaleX,p2.y*scaleY,14*scaleX,90*scaleY);
 
-  lastBall.push({x:data.ball.x,y:data.ball.y});
-  if(lastBall.length>12) lastBall.shift();
-
-  lastBall.forEach((b,i)=>{
-    ctx.globalAlpha=i/12;
-    ctx.beginPath();
-    ctx.arc(b.x*scaleX,b.y*scaleY,14,0,Math.PI*2);
-    ctx.fill();
-  });
-  ctx.globalAlpha=1;
+  ctx.beginPath();
+  ctx.arc(data.ball.x*scaleX,data.ball.y*scaleY,14,0,Math.PI*2);
+  ctx.fill();
 
   ctx.shadowBlur=0;
   ctx.font="18px Orbitron";
@@ -182,7 +186,10 @@ socket.on("state",data=>{
 
   ctx.font="42px Orbitron";
   ctx.fillText(`${data.score.p1}   ${data.score.p2}`,W/2-40,60);
-});
+}
+
+render();
+
 </script>
 
 </body>
