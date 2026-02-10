@@ -168,10 +168,32 @@
       gameState = data;
     });
 
+    let localBall = { x: 450, y: 250 };
+    let localPlayers = {};
+
+    function lerp(start, end, t) {
+      return start * (1 - t) + end * t;
+    }
+
     function render() {
       requestAnimationFrame(render);
       updatePaddleWithKeys();
       if (!gameState) return;
+
+      // Smooth ball
+      const targetBall = gameState.ball;
+      // 0.2 factor gives a smooth "catch up" effect at 60fps
+      localBall.x = lerp(localBall.x, targetBall.x, 0.2);
+      localBall.y = lerp(localBall.y, targetBall.y, 0.2);
+
+      // Smooth remote players
+      const ids = gameState.ids;
+      ids.forEach(id => {
+        if (!localPlayers[id]) localPlayers[id] = { y: gameState.players[id].y };
+
+        const targetY = gameState.players[id].y;
+        localPlayers[id].y = lerp(localPlayers[id].y, targetY, 0.2);
+      });
 
       const data = gameState;
 
@@ -196,9 +218,11 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
-      const ids = data.ids;
-      const p1 = data.players[ids[0]];
-      const p2 = data.players[ids[1]];
+      const p1 = localPlayers[ids[0]] || data.players[ids[0]];
+      const p2 = localPlayers[ids[1]] || data.players[ids[1]];
+
+      const p1Name = data.players[ids[0]].name;
+      const p2Name = data.players[ids[1]].name;
 
       const scaleX = W / 900;
       const scaleY = H / 500;
@@ -210,13 +234,13 @@
       ctx.fillRect(W - 45 * scaleX, p2.y * scaleY, 14 * scaleX, 90 * scaleY);
 
       ctx.beginPath();
-      ctx.arc(data.ball.x * scaleX, data.ball.y * scaleY, 14, 0, Math.PI * 2);
+      ctx.arc(localBall.x * scaleX, localBall.y * scaleY, 14, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.shadowBlur = 0;
       ctx.font = "18px Orbitron";
-      ctx.fillText(p1.name, 30 * scaleX, 40);
-      ctx.fillText(p2.name, W - 160 * scaleX, 40);
+      ctx.fillText(p1Name, 30 * scaleX, 40);
+      ctx.fillText(p2Name, W - 160 * scaleX, 40);
 
       ctx.font = "42px Orbitron";
       ctx.fillText(`${data.score.p1}   ${data.score.p2}`, W / 2 - 40, 60);

@@ -112,7 +112,7 @@ setInterval(() => {
     speed: getSpeed()
   });
 
-}, 1000 / 30);
+}, 1000 / 15);
 
 function resetBall(fullReset) {
   ball.x = 450;
