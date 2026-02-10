@@ -9,16 +9,28 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 let players = {};
-let ball = { x: 450, y: 250, dx: 3, dy: 3 };
+
+const BASE_SPEED = 4;
+const MAX_SPEED = 20;
+const WIN_SCORE = 5;
+
+let ball = {
+  x: 450,
+  y: 250,
+  dx: BASE_SPEED,
+  dy: BASE_SPEED
+};
+
 let score = { p1: 0, p2: 0 };
 let winner = null;
 
-const WIN_SCORE = 5;
+function getSpeed(){
+  return Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy).toFixed(1);
+}
 
 io.on("connection", socket => {
 
   socket.on("join", name => {
-
     if (Object.keys(players).length >= 2) return;
 
     players[socket.id] = { y: 200, name };
@@ -28,54 +40,79 @@ io.on("connection", socket => {
   });
 
   socket.on("move", y => {
-    if(players[socket.id]) players[socket.id].y = y;
+    if (players[socket.id]) players[socket.id].y = y;
   });
 
-  socket.on("restart", ()=>{
-    score = {p1:0,p2:0};
+  socket.on("restart", () => {
+    score = { p1: 0, p2: 0 };
     winner = null;
-    reset();
+    resetBall(true);
     io.emit("restart");
   });
 
-  socket.on("disconnect", ()=>{
+  socket.on("disconnect", () => {
     delete players[socket.id];
-    score={p1:0,p2:0};
-    winner=null;
-    io.emit("players",players);
+    score = { p1: 0, p2: 0 };
+    winner = null;
+    io.emit("players", players);
   });
 });
 
-setInterval(()=>{
+setInterval(() => {
 
   const ids = Object.keys(players);
-  if(ids.length!==2 || winner) return;
+  if (ids.length !== 2 || winner) return;
 
-  ball.x+=ball.dx;
-  ball.y+=ball.dy;
+  ball.x += ball.dx;
+  ball.y += ball.dy;
 
-  if(ball.y<=0||ball.y>=485) ball.dy*=-1;
+  if (ball.y <= 0 || ball.y >= 485) ball.dy *= -1;
 
-  const p1=players[ids[0]];
-  const p2=players[ids[1]];
+  const p1 = players[ids[0]];
+  const p2 = players[ids[1]];
 
-  if(ball.x<40 && ball.y>p1.y && ball.y<p1.y+90) ball.dx*=-1;
-  if(ball.x>860 && ball.y>p2.y && ball.y<p2.y+90) ball.dx*=-1;
+  // Left paddle (spin + speed)
+  if (ball.x < 40 && ball.y > p1.y && ball.y < p1.y + 90) {
+    const hitPos = (ball.y - (p1.y + 45)) / 45;
+    ball.dx = Math.min(MAX_SPEED, Math.abs(ball.dx) + 0.5);
+    ball.dy = hitPos * 6;
+  }
 
-  if(ball.x<0){score.p2++;reset();}
-  if(ball.x>900){score.p1++;reset();}
+  // Right paddle (spin + speed)
+  if (ball.x > 860 && ball.y > p2.y && ball.y < p2.y + 90) {
+    const hitPos = (ball.y - (p2.y + 45)) / 45;
+    ball.dx = -Math.min(MAX_SPEED, Math.abs(ball.dx) + 0.5);
+    ball.dy = hitPos * 6;
+  }
 
-  if(score.p1===WIN_SCORE) winner=p1.name;
-  if(score.p2===WIN_SCORE) winner=p2.name;
+  if (ball.x < 0) {
+    score.p2++;
+    resetBall(false);
+  }
 
-  io.emit("state",{players,ball,score,ids,winner});
+  if (ball.x > 900) {
+    score.p1++;
+    resetBall(false);
+  }
 
-},1000/40);
+  if (score.p1 === WIN_SCORE) winner = p1.name;
+  if (score.p2 === WIN_SCORE) winner = p2.name;
 
-function reset(){
-  ball.x=450;
-  ball.y=250;
-  ball.dx*=-1;
+  io.emit("state", { players, ball, score, ids, winner, speed: getSpeed() });
+
+}, 1000 / 40);
+
+function resetBall(fullReset) {
+  ball.x = 450;
+  ball.y = 250;
+
+  if (fullReset) {
+    ball.dx = Math.random() > 0.5 ? BASE_SPEED : -BASE_SPEED;
+    ball.dy = Math.random() > 0.5 ? BASE_SPEED : -BASE_SPEED;
+  } else {
+    ball.dx = ball.dx > 0 ? -BASE_SPEED : BASE_SPEED;
+    ball.dy = ball.dy > 0 ? BASE_SPEED : -BASE_SPEED;
+  }
 }
 
-server.listen(3000,()=>console.log("Running on http://localhost:3000"));
+server.listen(3000, () => console.log("Running on http://localhost:3000"));

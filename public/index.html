@@ -89,10 +89,7 @@ resize();
 
 function join(){
   const n = document.getElementById("name").value.trim();
-  if(!n){
-    alert("Enter name");
-    return;
-  }
+  if(!n) return alert("Enter name");
   socket.emit("join",n);
   status.innerText="You joined. Waiting for opponent...";
 }
@@ -102,12 +99,9 @@ function restart(){
 }
 
 document.addEventListener("mousemove",e=>{
-
   let y = (e.clientY - 45) * 0.7;
-
   if(y<0) y=0;
   if(y>410) y=410;
-
   socket.emit("move",y);
 });
 
@@ -126,20 +120,17 @@ socket.on("restart",()=>{
   win.style.display="none";
 });
 
-let lastBall=[];
-
-let gameState = null;
+let gameState=null;
 
 socket.on("state",data=>{
-  gameState = data;
+  gameState=data;
 });
+
 function render(){
-
   requestAnimationFrame(render);
-
   if(!gameState) return;
 
-  const data = gameState;
+  const data=gameState;
 
   if(data.winner){
     win.style.display="flex";
@@ -181,15 +172,17 @@ function render(){
 
   ctx.shadowBlur=0;
   ctx.font="18px Orbitron";
-  ctx.fillText(p1.name,30*scaleX,p1.y*scaleY-10);
-  ctx.fillText(p2.name,W-160*scaleX,p2.y*scaleY-10);
+  ctx.fillText(p1.name,30*scaleX,40);
+  ctx.fillText(p2.name,W-160*scaleX,40);
 
   ctx.font="42px Orbitron";
   ctx.fillText(`${data.score.p1}   ${data.score.p2}`,W/2-40,60);
+
+  ctx.font="16px Orbitron";
+  ctx.fillText("Speed: "+data.speed,W/2-40,90);
 }
 
 render();
-
 </script>
 
 </body>
