@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Ping Pong Neon</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+html,body{
+  margin:0;
+  width:100%;
+  height:100%;
+  background:#000;
+  font-family:'Orbitron',sans-serif;
+  overflow:hidden;
+}
+
+#lobby,#win{
+  position:fixed;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  background:radial-gradient(circle,#0f2027,#000);
+  color:white;
+  z-index:10;
+}
+
+input{
+  padding:14px;
+  border-radius:30px;
+  border:none;
+  width:240px;
+  font-size:16px;
+  text-align:center;
+}
+
+button{
+  margin-top:20px;
+  padding:14px 40px;
+  border:none;
+  border-radius:40px;
+  background:linear-gradient(135deg,#00f2ff,#0072ff);
+  color:white;
+  font-size:16px;
+  cursor:pointer;
+  box-shadow:0 0 25px #00f2ff;
+}
+
+canvas{
+  display:block;
+}
+</style>
+</head>
+
+<body>
+
+<div id="lobby">
+  <h1 style="font-size:56px;color:#00f2ff">PING PONG</h1>
+  <p>Fullscreen Neon Multiplayer</p>
+  <input id="name" placeholder="Enter your name">
+  <button onclick="join()">JOIN MATCH</button>
+  <p id="status"></p>
+</div>
+
+<div id="win" style="display:none">
+  <h1 id="winner" style="font-size:60px;color:#00f2ff"></h1>
+  <button onclick="restart()">RESTART</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+const socket = io();
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let W,H;
+function resize(){
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+window.addEventListener("resize",resize);
+resize();
+
+function join(){
+  const n = document.getElementById("name").value.trim();
+  if(!n){
+    alert("Enter name");
+    return;
+  }
+  socket.emit("join", n);
+  status.innerText = "Waiting for opponent...";
+}
+
+
+function restart(){
+  socket.emit("restart");
+}
+
+// mouse → paddle
+document.addEventListener("mousemove",e=>{
+  socket.emit("move", e.clientY - 45);
+});
+
+socket.on("players",p=>{
+  if(Object.keys(p).length===2){
+    lobby.style.display="none";
+  }
+});
+
+socket.on("restart",()=>{
+  win.style.display="none";
+});
+
+let lastBall = [];
+
+socket.on("state",data=>{
+
+  if(data.winner){
+    win.style.display="flex";
+    winner.innerText = data.winner + " WINS";
+    return;
+  }
+
+  // motion blur background
+  ctx.fillStyle="rgba(0,0,0,0.25)";
+  ctx.fillRect(0,0,W,H);
+
+  // center line
+  ctx.strokeStyle="#00f2ff55";
+  ctx.setLineDash([20,25]);
+  ctx.beginPath();
+  ctx.moveTo(W/2,0);
+  ctx.lineTo(W/2,H);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  const ids=data.ids;
+  const p1=data.players[ids[0]];
+  const p2=data.players[ids[1]];
+
+  // scale
+  const scaleY = H/500;
+  const scaleX = W/900;
+
+  // paddles
+  ctx.shadowColor="#00f2ff";
+  ctx.shadowBlur=30;
+  ctx.fillStyle="white";
+  ctx.fillRect(30*scaleX,p1.y*scaleY,14*scaleX,90*scaleY);
+  ctx.fillRect(W-45*scaleX,p2.y*scaleY,14*scaleX,90*scaleY);
+
+  // ball trail
+  lastBall.push({x:data.ball.x,y:data.ball.y});
+  if(lastBall.length>10) lastBall.shift();
+
+  lastBall.forEach((b,i)=>{
+    ctx.globalAlpha=i/10;
+    ctx.beginPath();
+    ctx.arc(b.x*scaleX,b.y*scaleY,10,0,Math.PI*2);
+    ctx.fill();
+  });
+  ctx.globalAlpha=1;
+
+  // names
+  ctx.shadowBlur=0;
+  ctx.font="18px Orbitron";
+  ctx.fillText(p1.name,30*scaleX,p1.y*scaleY-10);
+  ctx.fillText(p2.name,W-160*scaleX,p2.y*scaleY-10);
+
+  // score
+  ctx.font="42px Orbitron";
+  ctx.fillText(`${data.score.p1}   ${data.score.p2}`,W/2-40,60);
+});
+</script>
+
+</body>
+</html>
