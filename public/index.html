@@ -92,23 +92,32 @@ function join(){
     alert("Enter name");
     return;
   }
-  socket.emit("join", n);
-  status.innerText = "Waiting for opponent...";
+  socket.emit("join",n);
+  status.innerText="You joined. Waiting for opponent...";
 }
-
 
 function restart(){
   socket.emit("restart");
 }
 
-// mouse → paddle
 document.addEventListener("mousemove",e=>{
-  socket.emit("move", e.clientY - 45);
+
+  let y = (e.clientY - 45) * 0.7;
+
+  if(y<0) y=0;
+  if(y>410) y=410;
+
+  socket.emit("move",y);
+});
+
+socket.on("playerJoined",name=>{
+  status.innerText=name+" joined the room";
 });
 
 socket.on("players",p=>{
   if(Object.keys(p).length===2){
-    lobby.style.display="none";
+    status.innerText="Opponent connected!";
+    setTimeout(()=>lobby.style.display="none",1000);
   }
 });
 
@@ -116,21 +125,23 @@ socket.on("restart",()=>{
   win.style.display="none";
 });
 
-let lastBall = [];
+let lastBall=[];
 
 socket.on("state",data=>{
 
   if(data.winner){
     win.style.display="flex";
-    winner.innerText = data.winner + " WINS";
+    winner.innerText=data.winner+" WINS";
     return;
   }
 
-  // motion blur background
   ctx.fillStyle="rgba(0,0,0,0.25)";
   ctx.fillRect(0,0,W,H);
 
-  // center line
+  ctx.strokeStyle="#00f2ff";
+  ctx.lineWidth=2;
+  ctx.strokeRect(W*0.05,H*0.05,W*0.9,H*0.9);
+
   ctx.strokeStyle="#00f2ff55";
   ctx.setLineDash([20,25]);
   ctx.beginPath();
@@ -143,36 +154,31 @@ socket.on("state",data=>{
   const p1=data.players[ids[0]];
   const p2=data.players[ids[1]];
 
-  // scale
-  const scaleY = H/500;
-  const scaleX = W/900;
+  const scaleX=W/900;
+  const scaleY=H/500;
 
-  // paddles
   ctx.shadowColor="#00f2ff";
   ctx.shadowBlur=30;
   ctx.fillStyle="white";
   ctx.fillRect(30*scaleX,p1.y*scaleY,14*scaleX,90*scaleY);
   ctx.fillRect(W-45*scaleX,p2.y*scaleY,14*scaleX,90*scaleY);
 
-  // ball trail
   lastBall.push({x:data.ball.x,y:data.ball.y});
-  if(lastBall.length>10) lastBall.shift();
+  if(lastBall.length>12) lastBall.shift();
 
   lastBall.forEach((b,i)=>{
-    ctx.globalAlpha=i/10;
+    ctx.globalAlpha=i/12;
     ctx.beginPath();
-    ctx.arc(b.x*scaleX,b.y*scaleY,10,0,Math.PI*2);
+    ctx.arc(b.x*scaleX,b.y*scaleY,14,0,Math.PI*2);
     ctx.fill();
   });
   ctx.globalAlpha=1;
 
-  // names
   ctx.shadowBlur=0;
   ctx.font="18px Orbitron";
   ctx.fillText(p1.name,30*scaleX,p1.y*scaleY-10);
   ctx.fillText(p2.name,W-160*scaleX,p2.y*scaleY-10);
 
-  // score
   ctx.font="42px Orbitron";
   ctx.fillText(`${data.score.p1}   ${data.score.p2}`,W/2-40,60);
 });

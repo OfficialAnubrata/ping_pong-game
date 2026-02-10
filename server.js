@@ -9,7 +9,7 @@ const io = new Server(server);
 app.use(express.static("public"));
 
 let players = {};
-let ball = { x: 450, y: 250, dx: 5, dy: 5 };
+let ball = { x: 450, y: 250, dx: 3, dy: 3 };
 let score = { p1: 0, p2: 0 };
 let winner = null;
 
@@ -18,9 +18,12 @@ const WIN_SCORE = 5;
 io.on("connection", socket => {
 
   socket.on("join", name => {
+
     if (Object.keys(players).length >= 2) return;
 
     players[socket.id] = { y: 200, name };
+
+    io.emit("playerJoined", name);
     io.emit("players", players);
   });
 
@@ -67,7 +70,7 @@ setInterval(()=>{
 
   io.emit("state",{players,ball,score,ids,winner});
 
-},1000/60);
+},1000/75);
 
 function reset(){
   ball.x=450;
